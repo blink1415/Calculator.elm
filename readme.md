@@ -11,3 +11,7 @@ Currently the code can parse expressions into a list of tokens.
 - [ ] Check validity of expression
 - [ ] Evaluate expression
 - [ ] Editable text field for expression
+
+## Why Elm?
+
+Functional programming is cool and the dev tools for Elm are excellent.
