@@ -1,52 +1,73 @@
-module Parse exposing (parse, parseNumber, parseNumberHelper, toTokenList)
+module Parse exposing (errorToString, parse)
 
 import Expression exposing (Expression, Operation(..), Token(..))
 import IsValid exposing (check)
 
 
-parse : Expression -> Result String (List Token)
+parse : Expression -> Result ParseError (List Token)
 parse expression =
-    toTokenList expression
-        |> Result.andThen check
+    case toTokenList 0 expression of
+        -- Ok tokens ->
+        --     check tokens
+        Ok tokens ->
+            Ok tokens
+
+        Err e ->
+            Err e
 
 
-toTokenList : Expression -> Result String (List Token)
-toTokenList expression =
+errorToString : ParseError -> String
+errorToString error =
+    case error of
+        UnexpectedCharacter c index ->
+            "Unexpected character: '" ++ String.fromChar c ++ "' at position " ++ String.fromInt index
+
+        UnexpectedEndOfExpression ->
+            "Unexpected end of expression"
+
+
+type ParseError
+    = UnexpectedCharacter Char Int
+    | UnexpectedEndOfExpression
+
+
+toTokenList : Int -> Expression -> Result ParseError (List Token)
+toTokenList index expression =
     case expression |> String.toList |> List.head of
         Just c ->
             if Char.isDigit c then
                 case parseNumber expression of
                     Just ( num, rest ) ->
-                        appendIfOk [ Number num ] (toTokenList rest)
+                        appendIfOk [ Number num ] (toTokenList (index + 1) rest)
 
                     Nothing ->
-                        Err "Unexpected end of expression"
+                        Err UnexpectedEndOfExpression
 
             else
                 case c of
                     ' ' ->
-                        appendIfOk [] (toTokenList (String.dropLeft 1 expression))
+                        appendIfOk [] (toTokenList (index + 1) (String.dropLeft 1 expression))
 
                     '(' ->
-                        appendIfOk [ Open ] (toTokenList (String.dropLeft 1 expression))
+                        appendIfOk [ Open ] (toTokenList (index + 1) (String.dropLeft 1 expression))
 
                     ')' ->
-                        appendIfOk [ Close ] (toTokenList (String.dropLeft 1 expression))
+                        appendIfOk [ Close ] (toTokenList (index + 1) (String.dropLeft 1 expression))
 
                     '+' ->
-                        appendIfOk [ Operation Add ] (toTokenList (String.dropLeft 1 expression))
+                        appendIfOk [ Operation Add ] (toTokenList (index + 1) (String.dropLeft 1 expression))
 
                     '-' ->
-                        appendIfOk [ Operation Sub ] (toTokenList (String.dropLeft 1 expression))
+                        appendIfOk [ Operation Sub ] (toTokenList (index + 1) (String.dropLeft 1 expression))
 
                     '*' ->
-                        appendIfOk [ Operation Mul ] (toTokenList (String.dropLeft 1 expression))
+                        appendIfOk [ Operation Mul ] (toTokenList (index + 1) (String.dropLeft 1 expression))
 
                     '/' ->
-                        appendIfOk [ Operation Div ] (toTokenList (String.dropLeft 1 expression))
+                        appendIfOk [ Operation Div ] (toTokenList (index + 1) (String.dropLeft 1 expression))
 
                     _ ->
-                        Err ("Unexpected character: '" ++ String.fromChar c ++ "'")
+                        Err (UnexpectedCharacter c index)
 
         Nothing ->
             Ok []
@@ -69,7 +90,7 @@ parseNumberHelper str acc =
         String.toFloat acc |> Maybe.map (\num -> ( num, str ))
 
 
-appendIfOk : List a -> Result String (List a) -> Result String (List a)
+appendIfOk : List a -> Result b (List a) -> Result b (List a)
 appendIfOk list result =
     case result of
         Ok r ->

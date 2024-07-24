@@ -1,4 +1,4 @@
-module Expression exposing (Expression, Operation(..), Token(..))
+module Expression exposing (Expression, Operation(..), Token(..), operationToString)
 
 
 type alias Expression =
@@ -11,6 +11,20 @@ type Operation
     | Mul
     | Div
 
+operationToString : Operation -> String
+operationToString op =
+    case op of
+        Add ->
+            "+"
+        
+        Sub ->
+            "-"
+        
+        Mul ->
+            "*"
+        
+        Div ->
+            "/"
 
 type Token
     = Number Float
