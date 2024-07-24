@@ -10,6 +10,7 @@ type Operation
     | Sub
     | Mul
     | Div
+    | Sin
 
 operationToString : Operation -> String
 operationToString op =
@@ -25,6 +26,9 @@ operationToString op =
         
         Div ->
             "/"
+        
+        Sin ->
+            "sin"
 
 type Token
     = Number Float

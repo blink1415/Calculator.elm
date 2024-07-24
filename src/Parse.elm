@@ -1,7 +1,6 @@
 module Parse exposing (errorToString, parse)
 
 import Expression exposing (Expression, Operation(..), Token(..))
-import IsValid exposing (check)
 
 
 parse : Expression -> Result ParseError (List Token)
@@ -30,48 +29,63 @@ type ParseError
     = UnexpectedCharacter Char Int
     | UnexpectedEndOfExpression
 
+const_pi : Float
+const_pi = 3.141592653
+const_e : Float
+const_e = 2.718281828
+const_tau : Float
+const_tau = 2 * const_pi
 
 toTokenList : Int -> Expression -> Result ParseError (List Token)
 toTokenList index expression =
-    case expression |> String.toList |> List.head of
-        Just c ->
-            if Char.isDigit c then
-                case parseNumber expression of
-                    Just ( num, rest ) ->
-                        appendIfOk [ Number num ] (toTokenList (index + 1) rest)
+    case expression |> String.toList  of
+            ' ' :: rest ->
+                appendIfOk [] (toTokenList (index + 1) (String.fromList rest))
 
-                    Nothing ->
-                        Err UnexpectedEndOfExpression
+            '(' :: rest ->
+                appendIfOk [ Open ] (toTokenList (index + 1) (String.fromList rest))
 
-            else
-                case c of
-                    ' ' ->
-                        appendIfOk [] (toTokenList (index + 1) (String.dropLeft 1 expression))
+            ')' ::rest ->
+                appendIfOk [ Close ] (toTokenList (index + 1) (String.fromList rest))
 
-                    '(' ->
-                        appendIfOk [ Open ] (toTokenList (index + 1) (String.dropLeft 1 expression))
+            '+' :: rest ->
+                appendIfOk [ Operation Add ] (toTokenList (index + 1) (String.fromList rest))
 
-                    ')' ->
-                        appendIfOk [ Close ] (toTokenList (index + 1) (String.dropLeft 1 expression))
+            '-' :: rest ->
+                appendIfOk [ Operation Sub ] (toTokenList (index + 1) (String.fromList rest))
 
-                    '+' ->
-                        appendIfOk [ Operation Add ] (toTokenList (index + 1) (String.dropLeft 1 expression))
+            '*' :: rest ->
+                appendIfOk [ Operation Mul ] (toTokenList (index + 1) (String.fromList rest))
 
-                    '-' ->
-                        appendIfOk [ Operation Sub ] (toTokenList (index + 1) (String.dropLeft 1 expression))
+            '/' :: rest ->
+                appendIfOk [ Operation Div ] (toTokenList (index + 1) (String.fromList rest))
 
-                    '*' ->
-                        appendIfOk [ Operation Mul ] (toTokenList (index + 1) (String.dropLeft 1 expression))
+            'p' :: 'i' :: rest ->
+                appendIfOk [ Number 3.141592653 ] (toTokenList (index + 1) (String.fromList rest))
 
-                    '/' ->
-                        appendIfOk [ Operation Div ] (toTokenList (index + 1) (String.dropLeft 1 expression))
+            'e' :: rest ->
+                appendIfOk [ Number 2.718281828 ] (toTokenList (index + 1) (String.fromList rest))
 
-                    _ ->
-                        Err (UnexpectedCharacter c index)
+            't' :: 'a' :: 'u' :: rest ->
+                appendIfOk [ Number const_tau ] (toTokenList (index + 1) (String.fromList rest))
 
-        Nothing ->
-            Ok []
+            's' :: 'i' :: 'n' :: rest ->
+                appendIfOk [ Operation Sin] (toTokenList (index + 1) (String.fromList rest))
 
+            c :: _ ->
+                if Char.isDigit c then
+                    case parseNumber expression of
+                        Just ( num, re ) ->
+                            appendIfOk [ Number num ] (toTokenList (index + 1) re)
+
+                        Nothing ->
+                            Err UnexpectedEndOfExpression
+                        
+                else
+                    Err (UnexpectedCharacter c index)
+                
+            [] ->
+                Ok []
 
 parseNumber : String -> Maybe ( Float, String )
 parseNumber str =
