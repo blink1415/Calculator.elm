@@ -1,24 +1,16 @@
 module Main exposing (Input(..), State, btn, main, update, view)
 
 import Browser
+import Css exposing (backgroundColor, color, fontFamily, hover, margin, monospace, px, rgb, textDecoration, underline, width)
 import Evaluate
-import Css exposing (margin, color, hover, backgroundColor, textDecoration, px, rgb, underline)
 import Html.Styled exposing (..)
-import Html.Styled exposing (Html, br, div, p, text)
-import Html.Styled exposing (styled, button)
+import Html.Styled.Attributes exposing (disabled, type_, value)
 import Html.Styled.Events exposing (onClick, onInput)
-import Html.Styled.Attributes exposing ( type_, value)
-import Css exposing (width)
-import Css exposing (fontFace)
-import Css exposing (fontFamily)
-import Css exposing (monospace)
-import Html.Styled.Attributes exposing (disabled)
 
 
 type alias State =
-    {
-        expression : String,
-        result : String
+    { expression : String
+    , result : String
     }
 
 
@@ -50,9 +42,10 @@ update msg state =
 
                 Err e ->
                     { expression = state.expression, result = e }
+
         Input "" ->
             { expression = "", result = "" }
-                    
+
         Input s ->
             case Evaluate.evaluate s of
                 Ok result ->
@@ -62,30 +55,29 @@ update msg state =
                     { expression = s, result = e }
 
 
-    
-
 btn : Input -> Html Input
 btn msg =
-    let 
-        stylizedButton = styled button
-            [ margin (px 3)
-            , color (rgb 0 0 0)
-            , width (px 35)
-            , hover
-                [ backgroundColor (rgb 250 250 250)
-                , textDecoration underline
+    let
+        stylizedButton =
+            styled button
+                [ margin (px 3)
+                , color (rgb 0 0 0)
+                , width (px 35)
+                , hover
+                    [ backgroundColor (rgb 250 250 250)
+                    , textDecoration underline
+                    ]
                 ]
-            ]
     in
     case msg of
         Char c ->
-            stylizedButton  [ onClick msg ] [ text (String.fromChar c) ]
+            stylizedButton [ onClick msg ] [ text (String.fromChar c) ]
 
         Clear ->
-            stylizedButton  [ onClick msg ] [ text "CE" ]
+            stylizedButton [ onClick msg ] [ text "CE" ]
 
         Evaluate ->
-            stylizedButton  [ onClick msg ] [ text "=" ]
+            stylizedButton [ onClick msg ] [ text "=" ]
 
         _ ->
             div [] []
@@ -93,12 +85,13 @@ btn msg =
 
 view : State -> Html Input
 view state =
-    styled div [
-        fontFamily monospace
-        ] []
+    styled div
+        [ fontFamily monospace
+        ]
+        []
         [ input [ type_ "text", value state.expression, onInput (\s -> Input s) ] []
         , br [] []
-        , input [ type_ "text", value ("= " ++ state.result), disabled True] [] 
+        , input [ type_ "text", value ("= " ++ state.result), disabled True ] []
         , div []
             [ btn (Char '1')
             , btn (Char '2')
