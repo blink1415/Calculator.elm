@@ -1,7 +1,7 @@
 module Main exposing (Input(..), State, btn, main, update, view)
 
 import Browser
-import Css exposing (backgroundColor, color, fontFamily, hover, margin, monospace, px, rgb, textDecoration, underline, width)
+import Css exposing (auto, backgroundColor, border3, borderRadius, color, fitContent, fontFamily, fontSize, hex, hover, margin, marginLeft, marginRight, maxWidth, monospace, padding, px, rgb, solid, textDecoration, underline, width)
 import Evaluate
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (disabled, type_, value)
@@ -15,10 +15,9 @@ type alias State =
 
 
 type Input
-    = Char Char
+    = Value String
     | Clear
     | Evaluate
-    | Input String
 
 
 main : Program () State Input
@@ -28,31 +27,27 @@ main =
 
 update : Input -> State -> State
 update msg state =
-    case msg of
-        Clear ->
-            { expression = "", result = state.result }
+    let
+        newExpression =
+            case msg of
+                Clear ->
+                    ""
 
-        Char c ->
-            { expression = state.expression ++ String.fromChar c, result = state.result }
+                Evaluate ->
+                    state.expression
 
-        Evaluate ->
-            case Evaluate.evaluate state.expression of
-                Ok result ->
-                    { expression = state.expression, result = String.fromFloat result }
+                Value s ->
+                    s
+    in
+    { expression = newExpression
+    , result =
+        case Evaluate.evaluate newExpression of
+            Ok result ->
+                String.fromFloat result
 
-                Err e ->
-                    { expression = state.expression, result = e }
-
-        Input "" ->
-            { expression = "", result = "" }
-
-        Input s ->
-            case Evaluate.evaluate s of
-                Ok result ->
-                    { expression = s, result = String.fromFloat result }
-
-                Err e ->
-                    { expression = s, result = e }
+            Err e ->
+                e
+    }
 
 
 btn : Input -> Html Input
@@ -60,60 +55,81 @@ btn msg =
     let
         stylizedButton =
             styled button
-                [ margin (px 3)
+                [ margin (px 1)
                 , color (rgb 0 0 0)
-                , width (px 35)
+                , width (px 60)
+                , fontSize (px 30)
+                , backgroundColor (hex "fff")
+                , border3 (px 1) solid (hex "eee")
+                , borderRadius (px 5)
                 , hover
-                    [ backgroundColor (rgb 250 250 250)
-                    , textDecoration underline
+                    [ textDecoration underline
+                    , border3 (px 1) solid (hex "000")
                     ]
                 ]
     in
     case msg of
-        Char c ->
-            stylizedButton [ onClick msg ] [ text (String.fromChar c) ]
-
         Clear ->
             stylizedButton [ onClick msg ] [ text "CE" ]
 
         Evaluate ->
             stylizedButton [ onClick msg ] [ text "=" ]
 
-        _ ->
-            div [] []
+        Value s ->
+            stylizedButton [ onClick msg ] [ text s ]
+
+
+inputStyle : List Css.Style
+inputStyle =
+    [ fontSize (px 20)
+    , width (px 700)
+    ]
 
 
 view : State -> Html Input
 view state =
     styled div
         [ fontFamily monospace
+        , maxWidth fitContent
+        , marginLeft auto
+        , marginRight auto
+        , backgroundColor (hex "eee")
+        , padding (px 10)
+        , borderRadius (px 10)
         ]
         []
-        [ input [ type_ "text", value state.expression, onInput (\s -> Input s) ] []
+        [ styled input inputStyle [ type_ "text", value state.expression, onInput (\s -> Value s) ] []
         , br [] []
-        , input [ type_ "text", value ("= " ++ state.result), disabled True ] []
-        , div []
-            [ btn (Char '1')
-            , btn (Char '2')
-            , btn (Char '3')
+        , styled textarea inputStyle [ value ("= " ++ state.result), disabled True ] []
+        , styled div
+            [ maxWidth fitContent
+            , marginLeft auto
+            , marginRight auto
+            ]
+            []
+            [ btn (Value "1")
+            , btn (Value "2")
+            , btn (Value "3")
             , btn Clear
+            , btn (Value "^")
+            , btn (Value "sin")
             , br [] []
-            , btn (Char '4')
-            , btn (Char '5')
-            , btn (Char '6')
-            , btn (Char '(')
-            , btn (Char ')')
+            , btn (Value "4")
+            , btn (Value "5")
+            , btn (Value "6")
+            , btn (Value "(")
+            , btn (Value ")")
             , br [] []
-            , btn (Char '7')
-            , btn (Char '8')
-            , btn (Char '9')
-            , btn (Char '+')
-            , btn (Char '-')
+            , btn (Value "7")
+            , btn (Value "8")
+            , btn (Value "9")
+            , btn (Value "+")
+            , btn (Value "-")
             , br [] []
-            , btn (Char '.')
-            , btn (Char '0')
+            , btn (Value ".")
+            , btn (Value "0")
             , btn Evaluate
-            , btn (Char '/')
-            , btn (Char '*')
+            , btn (Value "/")
+            , btn (Value "*")
             ]
         ]

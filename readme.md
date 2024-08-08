@@ -8,10 +8,14 @@ Currently the code can parse expressions into a list of tokens.
 
 - [x] UI buttons for basic operations
 - [x] Parse expression into a list of tokens
-- [ ] Check validity of expression
-- [ ] Evaluate expression
-- [ ] Editable text field for expression
+- [x] Check validity of expression
+- [x] Evaluate expression
+- [x] Editable text field for expression
 
 ## Why Elm?
 
 Functional programming is cool and the dev tools for Elm are excellent.
+
+## Thoughts of Elm
+
+TODO

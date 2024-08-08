@@ -1,10 +1,6 @@
 module Evaluate exposing (..)
 
 
-type alias Expression =
-    String
-
-
 type Token
     = Number Float
     | Operation Operation
@@ -18,6 +14,7 @@ type Operation
     | Mul
     | Div
     | Sin
+    | Exp
 
 
 operationToString : Operation -> String
@@ -38,49 +35,22 @@ operationToString op =
         Sin ->
             "sin"
 
+        Exp ->
+            "^"
 
-evaluate : Expression -> Result String Float
+
+evaluate : String -> Result String Float
 evaluate expression =
-    case parse expression of
-        Ok tokens ->
-            evaluateTokens tokens
-
-        Err e ->
-            Err (errorToString e)
+    parse expression |> Result.map evaluateTokens
 
 
-parse : Expression -> Result ParseError (List Token)
+parse : String -> Result String (List Token)
 parse expression =
-    case stringToTokenList expression of
-        Ok tokens ->
-            Ok tokens
-
-        Err e ->
-            Err e
+    expression |> String.toList |> charListToTokenList
 
 
-errorToString : ParseError -> String
-errorToString error =
-    case error of
-        UnexpectedCharacter c index ->
-            "Unexpected character: '" ++ String.fromChar c ++ "' at position " ++ String.fromInt index
-
-        UnexpectedEndOfExpression ->
-            "Unexpected end of expression"
-
-
-type ParseError
-    = UnexpectedCharacter Char Int
-    | UnexpectedEndOfExpression
-
-
-stringToTokenList : Expression -> Result ParseError (List Token)
-stringToTokenList expression =
-    expression |> String.toList |> charListToTokenList 0
-
-
-charListToTokenList : Int -> List Char -> Result ParseError (List Token)
-charListToTokenList index expression =
+charListToTokenList : List Char -> Result String (List Token)
+charListToTokenList expression =
     let
         ( parseResult, rest ) =
             case expression of
@@ -93,7 +63,6 @@ charListToTokenList index expression =
                 ')' :: r ->
                     ( Ok [ Close ], r )
 
-                -- Operations
                 '+' :: r ->
                     ( Ok [ Operation Add ], r )
 
@@ -106,10 +75,12 @@ charListToTokenList index expression =
                 '/' :: r ->
                     ( Ok [ Operation Div ], r )
 
+                '^' :: r ->
+                    ( Ok [ Operation Exp ], r )
+
                 's' :: 'i' :: 'n' :: r ->
                     ( Ok [ Operation Sin ], r )
 
-                -- Constants
                 'p' :: 'i' :: r ->
                     ( Ok [ Number 3.141592653 ], r )
 
@@ -122,15 +93,15 @@ charListToTokenList index expression =
                 c :: _ ->
                     -- If the character is a digit, parse the string until the end of the number
                     if Char.isDigit c then
-                        case parseNumber (String.fromList expression) of
+                        case parseNumber expression of
                             Just ( num, r ) ->
-                                ( Ok [ Number num ], String.toList r )
+                                ( Ok [ Number num ], r )
 
                             Nothing ->
-                                ( Err UnexpectedEndOfExpression, expression )
+                                ( Err "Unexpected end of expression", expression )
 
                     else
-                        ( Err (UnexpectedCharacter c index), expression )
+                        ( Err ("Unexpected character: '" ++ String.fromChar c ++ "'"), expression )
 
                 [] ->
                     ( Ok [], expression )
@@ -141,7 +112,7 @@ charListToTokenList index expression =
     else
         case parseResult of
             Ok tokens ->
-                case charListToTokenList (index + 1) rest of
+                case charListToTokenList rest of
                     Ok r ->
                         Ok (List.append tokens r)
 
@@ -152,119 +123,90 @@ charListToTokenList index expression =
                 Err err
 
 
-parseNumber : String -> Maybe ( Float, String )
+parseNumber : List Char -> Maybe ( Float, List Char )
 parseNumber numberString =
     let
-        parseNumberHelper : String -> String -> Maybe ( Float, String )
-        parseNumberHelper str acc =
-            if String.isEmpty str then
-                String.toFloat acc |> Maybe.map (\num -> ( num, "" ))
+        isDigitOrDot : Char -> Bool
+        isDigitOrDot ch =
+            Char.isDigit ch || ch == '.'
 
-            else if Char.isDigit (str |> String.toList |> List.head |> Maybe.withDefault ' ') then
-                parseNumberHelper (String.dropLeft 1 str) (acc ++ String.left 1 str)
+        parseNumberHelper : List Char -> List Char -> Maybe ( Float, List Char )
+        parseNumberHelper str acc =
+            if isDigitOrDot (str |> List.head |> Maybe.withDefault ' ') then
+                parseNumberHelper (List.drop 1 str) (acc ++ List.take 1 str)
 
             else
-                String.toFloat acc |> Maybe.map (\num -> ( num, str ))
+                acc |> String.fromList |> String.toFloat |> Maybe.map (\num -> ( num, str ))
     in
-    parseNumberHelper numberString ""
+    parseNumberHelper numberString []
 
 
-evaluateTokens : List Token -> Result String Float
+evaluateTokens : List Token -> Float
 evaluateTokens tokens =
     let
-        multiply : List Token -> Result String (Maybe (List Token))
-        multiply t =
+        binaryOperation : Operation -> (Float -> Float -> Float) -> List Token -> Maybe (List Token)
+        binaryOperation op doOperation t =
             case t of
-                (Number left) :: (Operation Mul) :: (Number right) :: xs ->
-                    Ok (Just (Number (left * right) :: xs))
-
-                _ ->
-                    Ok Nothing
-
-        divide : List Token -> Result String (Maybe (List Token))
-        divide t =
-            case t of
-                (Number left) :: (Operation Div) :: (Number right) :: xs ->
-                    if right == 0 then
-                        Err "Unexpected operation: Division by zero"
+                (Number left) :: (Operation op2) :: (Number right) :: xs ->
+                    if op == op2 then
+                        Just (Number (doOperation left right) :: xs)
 
                     else
-                        Ok (Just (Number (left / right) :: xs))
+                        Nothing
 
                 _ ->
-                    Ok Nothing
+                    Nothing
 
-        add : List Token -> Result String (Maybe (List Token))
-        add t =
-            case t of
-                (Number left) :: (Operation Add) :: (Number right) :: xs ->
-                    Ok (Just (Number (left + right) :: xs))
-
-                _ ->
-                    Ok Nothing
-
-        subtract : List Token -> Result String (Maybe (List Token))
-        subtract t =
-            case t of
-                (Number left) :: (Operation Sub) :: (Number right) :: xs ->
-                    Ok (Just (Number (left - right) :: xs))
-
-                _ ->
-                    Ok Nothing
-
-        parentheses : List Token -> Result String (Maybe (List Token))
-        parentheses t =
+        parenthesesTransform : List Token -> Maybe (List Token)
+        parenthesesTransform t =
             case t of
                 Open :: x :: Close :: xs ->
-                    Ok (Just (x :: xs))
+                    Just (x :: xs)
 
                 Open :: Close :: xs ->
-                    Ok (Just xs)
+                    Just xs
 
                 _ ->
-                    Ok Nothing
+                    Nothing
 
-        sinRadians : List Token -> Result String (Maybe (List Token))
-        sinRadians t =
+        sinRadiansTransform : List Token -> Maybe (List Token)
+        sinRadiansTransform t =
             case t of
                 (Operation Sin) :: (Number right) :: xs ->
-                    Ok (Just (Number (sin right) :: xs))
+                    Just (Number (sin right) :: xs)
 
                 _ ->
-                    Ok Nothing
+                    Nothing
 
-        resolve : (List Token -> Result String (Maybe (List Token))) -> List Token -> Result String (List Token)
+        resolve : (List Token -> Maybe (List Token)) -> List Token -> List Token
         resolve doOperation t =
             case doOperation t of
-                Ok v ->
-                    case v of
-                        Just newTokens ->
-                            resolve doOperation newTokens
+                Just newTokens ->
+                    resolve doOperation newTokens
 
-                        Nothing ->
-                            case t of
-                                x :: xs ->
-                                    Result.map (\list -> x :: list) <| resolve doOperation xs
+                Nothing ->
+                    case t of
+                        x :: xs ->
+                            x :: resolve doOperation xs
 
-                                [] ->
-                                    Ok []
-
-                Err e ->
-                    Err e
+                        [] ->
+                            []
     in
     case tokens of
         [ Number result ] ->
-            Ok result
+            result
 
         [] ->
-            Err "Expression evaluates to empty expression"
+            0
 
         _ ->
-            Ok tokens
-                |> Result.andThen (resolve parentheses)
-                |> Result.andThen (resolve sinRadians)
-                |> Result.andThen (resolve multiply)
-                |> Result.andThen (resolve divide)
-                |> Result.andThen (resolve add)
-                |> Result.andThen (resolve subtract)
-                |> Result.andThen evaluateTokens
+            tokens
+                |> resolve parenthesesTransform
+                |> resolve sinRadiansTransform
+                |> resolve (binaryOperation Exp (^))
+                |> resolve (binaryOperation Mul (*))
+                |> resolve (binaryOperation Div (/))
+                -- Note: Subtraction needs to be done before addition because we're evaluating left to right
+                |> resolve (binaryOperation Sub (-))
+                |> resolve (binaryOperation Add (+))
+                |> evaluateTokens
