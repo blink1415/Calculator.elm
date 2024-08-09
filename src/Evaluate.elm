@@ -14,6 +14,8 @@ type Operation
     | Mul
     | Div
     | Sin
+    | Cos
+    | Tan
     | Exp
 
 
@@ -34,6 +36,12 @@ operationToString op =
 
         Sin ->
             "sin"
+
+        Cos ->
+            "cos"
+
+        Tan ->
+            "tan"
 
         Exp ->
             "^"
@@ -57,9 +65,6 @@ parse expression =
 charListToTokenList : Int -> List Char -> Result String (List Token)
 charListToTokenList index expression =
     let
-        _ =
-            Debug.log "index" index
-
         ( parseResult, rest, newIndex ) =
             case expression of
                 ' ' :: r ->
@@ -87,7 +92,13 @@ charListToTokenList index expression =
                     ( Ok [ Operation Exp ], r, index + 1 )
 
                 's' :: 'i' :: 'n' :: r ->
-                    ( Ok [ Operation Sin ], r, index + 1 )
+                    ( Ok [ Operation Sin ], r, index + 3 )
+
+                'c' :: 'o' :: 's' :: r ->
+                    ( Ok [ Operation Cos ], r, index + 3 )
+
+                't' :: 'a' :: 'n' :: r ->
+                    ( Ok [ Operation Tan ], r, index + 3 )
 
                 'p' :: 'i' :: r ->
                     ( Ok [ Number 3.141592653 ], r, index + 2 )
@@ -131,24 +142,6 @@ charListToTokenList index expression =
                 Err err
 
 
-parseNumber : List Char -> Maybe ( Float, List Char )
-parseNumber numberString =
-    let
-        isDigitOrDot : Char -> Bool
-        isDigitOrDot ch =
-            Char.isDigit ch || ch == '.'
-
-        parseNumberHelper : List Char -> List Char -> Maybe ( Float, List Char )
-        parseNumberHelper str acc =
-            if isDigitOrDot (str |> List.head |> Maybe.withDefault ' ') then
-                parseNumberHelper (List.drop 1 str) (acc ++ List.take 1 str)
-
-            else
-                acc |> String.fromList |> String.toFloat |> Maybe.map (\num -> ( num, str ))
-    in
-    parseNumberHelper numberString []
-
-
 evaluateTokens : List Token -> Float
 evaluateTokens tokens =
     let
@@ -165,6 +158,19 @@ evaluateTokens tokens =
                 _ ->
                     Nothing
 
+        unaryOperation : Operation -> (Float -> Float) -> List Token -> Maybe (List Token)
+        unaryOperation op doOperation t =
+            case t of
+                (Operation op2) :: (Number right) :: xs ->
+                    if op == op2 then
+                        Just (Number (doOperation right) :: xs)
+
+                    else
+                        Nothing
+
+                _ ->
+                    Nothing
+
         parenthesesTransform : List Token -> Maybe (List Token)
         parenthesesTransform t =
             case t of
@@ -173,15 +179,6 @@ evaluateTokens tokens =
 
                 Open :: Close :: xs ->
                     Just xs
-
-                _ ->
-                    Nothing
-
-        sinRadiansTransform : List Token -> Maybe (List Token)
-        sinRadiansTransform t =
-            case t of
-                (Operation Sin) :: (Number right) :: xs ->
-                    Just (Number (sin right) :: xs)
 
                 _ ->
                     Nothing
@@ -210,7 +207,9 @@ evaluateTokens tokens =
         _ ->
             tokens
                 |> resolve parenthesesTransform
-                |> resolve sinRadiansTransform
+                |> resolve (unaryOperation Sin sin)
+                |> resolve (unaryOperation Cos cos)
+                |> resolve (unaryOperation Tan tan)
                 |> resolve (binaryOperation Exp (^))
                 |> resolve (binaryOperation Mul (*))
                 |> resolve (binaryOperation Div (/))
@@ -220,12 +219,27 @@ evaluateTokens tokens =
                 |> evaluateTokens
 
 
+parseNumber : List Char -> Maybe ( Float, List Char )
+parseNumber numberString =
+    let
+        isDigitOrDot : Char -> Bool
+        isDigitOrDot ch =
+            Char.isDigit ch || ch == '.'
+
+        parseNumberHelper : List Char -> List Char -> Maybe ( Float, List Char )
+        parseNumberHelper str acc =
+            if isDigitOrDot (str |> List.head |> Maybe.withDefault ' ') then
+                parseNumberHelper (List.drop 1 str) (acc ++ List.take 1 str)
+
+            else
+                acc |> String.fromList |> String.toFloat |> Maybe.map (\num -> ( num, str ))
+    in
+    parseNumberHelper numberString []
+
+
 unexpectedCharacterErrorMessage : Int -> List Char -> String
 unexpectedCharacterErrorMessage offset expression =
     let
-        _ =
-            Debug.log "index" offset
-
         indent =
             String.repeat offset " "
 

@@ -127,12 +127,14 @@ view state =
             , btn (Value "6")
             , btn (Value "(")
             , btn (Value ")")
+            , btn (Value "cos")
             , br [] []
             , btn (Value "7")
             , btn (Value "8")
             , btn (Value "9")
             , btn (Value "+")
             , btn (Value "-")
+            , btn (Value "tan")
             , br [] []
             , btn (Value ".")
             , btn (Value "0")
