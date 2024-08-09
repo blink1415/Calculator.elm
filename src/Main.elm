@@ -1,7 +1,7 @@
 module Main exposing (Input(..), State, btn, main, update, view)
 
 import Browser
-import Css exposing (auto, backgroundColor, border3, borderRadius, color, fitContent, fontFamily, fontSize, hex, hover, margin, marginLeft, marginRight, maxWidth, monospace, padding, px, rgb, solid, textDecoration, underline, width)
+import Css exposing (auto, backgroundColor, border3, borderRadius, color, fitContent, fontFamily, fontSize, height, hex, hover, margin, marginLeft, marginRight, maxWidth, monospace, overflowWrap, padding, pre, px, rgb, solid, textDecoration, underline, whiteSpace, width)
 import Evaluate
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (disabled, type_, value)
@@ -100,7 +100,15 @@ view state =
         []
         [ styled input inputStyle [ type_ "text", value state.expression, onInput (\s -> Value s) ] []
         , br [] []
-        , styled textarea inputStyle [ value ("= " ++ state.result), disabled True ] []
+        , styled textarea
+            (inputStyle
+                ++ [ height (px 75)
+                   , whiteSpace Css.pre
+                   , overflowWrap Css.normal
+                   ]
+            )
+            [ value state.result, disabled True ]
+            []
         , styled div
             [ maxWidth fitContent
             , marginLeft auto
